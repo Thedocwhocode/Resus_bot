@@ -1,0 +1,80 @@
+version: "3.9"
+
+networks:
+  internal:
+    driver: bridge
+  traefik_public:
+    external: true
+
+volumes:
+  resusbot_data:
+  redis_data:
+
+services:
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── SearXNG ─────────────────────────────────────────────────────────────────
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    networks:
+      - internal
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+
+  # ── OrioSearch ──────────────────────────────────────────────────────────────
+  oriosearch:
+    image: oriosearch/oriosearch:latest
+    restart: unless-stopped
+    environment:
+      - SEARXNG_URL=http://searxng:8080
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+    networks:
+      - internal
+
+  # ── ResusBot ─────────────────────────────────────────────────────────────────
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - resusbot_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      oriosearch:
+        condition: service_started
+    networks:
+      - internal
+      - traefik_public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.resusbot.rule=Host(`${DOMAIN:-resusbot.local}`)"
+      - "traefik.http.routers.resusbot.entrypoints=websecure"
+      - "traefik.http.routers.resusbot.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.resusbot-http.rule=Host(`${DOMAIN:-resusbot.local}`)"
+      - "traefik.http.routers.resusbot-http.entrypoints=web"
+      - "traefik.http.routers.resusbot-http.middlewares=redirect-https"
+      - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
+      - "traefik.http.services.resusbot.loadbalancer.server.port=8000"

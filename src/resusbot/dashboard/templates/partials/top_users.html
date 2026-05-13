@@ -1,0 +1,14 @@
+<table>
+  <thead><tr><th>ID (hash)</th><th>Pesquisas</th><th>Último acesso</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><code>{{ row.telegram_id_hash }}</code></td>
+      <td><span class="badge">{{ row.request_count }}</span></td>
+      <td>{{ row.last_seen }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" style="color:var(--muted)">Nenhum usuário registrado.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check src tests
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check src tests
+
+      - name: Type check (mypy)
+        run: uv run mypy src
+
+      - name: Tests
+        env:
+          TELEGRAM_BOT_TOKEN: "fake:token"
+          GROQ_API_KEY: "fake_key"
+          SQLITE_PATH: ":memory:"
+          REDIS_URL: "redis://localhost:6379/0"
+          DASHBOARD_PASSWORD_HASH: "$2b$12$fakehashfakehashfakehashfakehashfakehashfakeha"
+        run: uv run pytest -q --no-header

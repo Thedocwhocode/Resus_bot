@@ -1,0 +1,13 @@
+<table>
+  <thead><tr><th>Pesquisa</th><th>Vezes</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.query[:80] }}{% if row.query|length > 80 %}…{% endif %}</td>
+      <td><span class="badge">{{ row.count }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="2" style="color:var(--muted)">Nenhuma pesquisa registrada.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

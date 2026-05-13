@@ -1,0 +1,14 @@
+<table>
+  <thead><tr><th>Artigo</th><th>DOI</th><th>Pesquisas</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.title[:60] }}{% if row.title|length > 60 %}…{% endif %}</td>
+      <td><a href="https://doi.org/{{ row.doi }}" target="_blank" style="color:var(--primary)">{{ row.doi[:30] }}</a></td>
+      <td><span class="badge">{{ row.searches }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" style="color:var(--muted)">Nenhum artigo registrado.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

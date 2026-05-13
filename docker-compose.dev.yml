@@ -1,0 +1,28 @@
+version: "3.9"
+
+# Override para desenvolvimento local (sem Traefik, polling, porta exposta)
+services:
+  redis:
+    ports:
+      - "6379:6379"
+
+  bot:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+      - ./src:/app/src   # hot-reload do código
+    environment:
+      - TELEGRAM_MODE=polling
+      - APP_ENV=development
+      - LOG_LEVEL=DEBUG
+      - SQLITE_PATH=/data/resusbot.db
+      - REDIS_URL=redis://redis:6379/0
+    command: uvicorn resusbot.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - internal
+
+networks:
+  traefik_public:
+    external: false  # override: não exige network externa em dev

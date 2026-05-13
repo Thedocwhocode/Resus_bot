@@ -1,0 +1,30 @@
+use_default_settings: true
+
+server:
+  secret_key: "changeme-generate-random-key"
+  limiter: false
+  image_proxy: false
+
+ui:
+  default_locale: "pt-BR"
+  default_theme: simple
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "pt-BR"
+
+engines:
+  - name: google
+    engine: google
+    language: pt-br
+    disabled: false
+  - name: bing
+    engine: bing
+    disabled: false
+  - name: pubmed
+    engine: pubmed
+    disabled: false
+  - name: semantic scholar
+    engine: semantic_scholar
+    disabled: false

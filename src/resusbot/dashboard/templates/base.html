@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResusBot — Dashboard</title>
+  <script src="https://unpkg.com/htmx.org@2.0.0/dist/htmx.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --primary: #1a73e8;
+      --surface: #f8f9fa;
+      --card: #ffffff;
+      --text: #202124;
+      --muted: #5f6368;
+      --border: #dadce0;
+      --success: #34a853;
+      --warning: #fbbc04;
+      --danger: #ea4335;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--surface); color: var(--text); }
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 600; }
+    main { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem 1.5rem;
+    }
+    .card h2 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .5rem; }
+    .card .value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+    .card .sub { font-size: 0.8rem; color: var(--muted); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { text-align: left; padding: .6rem .8rem; font-size: .8rem; color: var(--muted); border-bottom: 2px solid var(--border); }
+    td { padding: .6rem .8rem; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: .2rem .5rem;
+      border-radius: 999px;
+      font-size: .75rem;
+      background: #e8f0fe;
+      color: var(--primary);
+    }
+    .range-selector { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .range-selector button {
+      border: 1px solid var(--border);
+      background: var(--card);
+      padding: .3rem .8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .85rem;
+    }
+    .range-selector button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .chart-wrap { height: 220px; }
+    .htmx-request { opacity: .5; transition: opacity .3s; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header>
+    <i class="fa-solid fa-heart-pulse" style="font-size:1.5rem"></i>
+    <h1>ResusBot — Painel de Monitoramento</h1>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

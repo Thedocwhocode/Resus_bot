@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Range selector -->
+<div class="range-selector" id="range-selector">
+  <button class="active" onclick="setRange(7, this)">7 dias</button>
+  <button onclick="setRange(30, this)">30 dias</button>
+  <button onclick="setRange(90, this)">90 dias</button>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid"
+     id="kpi-section"
+     hx-get="/dashboard/api/stats?range=7"
+     hx-trigger="load, every 60s"
+     hx-target="#kpi-section"
+     hx-swap="outerHTML">
+  <div class="card"><h2>Carregando...</h2><div class="value">—</div></div>
+</div>
+
+<!-- Gráfico de série temporal -->
+<div class="card" style="margin-bottom:1rem">
+  <h2 style="margin-bottom:1rem">Pesquisas por dia</h2>
+  <div class="chart-wrap">
+    <canvas id="timeseriesChart"></canvas>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Top 10 assuntos -->
+  <div class="card">
+    <h2 style="margin-bottom:.8rem">Top 10 assuntos</h2>
+    <div id="top-subjects"
+         hx-get="/dashboard/api/top-subjects?limit=10"
+         hx-trigger="load"
+         hx-target="#top-subjects"
+         hx-swap="innerHTML">
+      <p style="color:var(--muted)">Carregando...</p>
+    </div>
+  </div>
+
+  <!-- Top usuários -->
+  <div class="card">
+    <h2 style="margin-bottom:.8rem">Usuários mais ativos</h2>
+    <div id="top-users"
+         hx-get="/dashboard/api/top-users?limit=10"
+         hx-trigger="load"
+         hx-target="#top-users"
+         hx-swap="innerHTML">
+      <p style="color:var(--muted)">Carregando...</p>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Top queries -->
+  <div class="card">
+    <h2 style="margin-bottom:.8rem">Top 10 pesquisas</h2>
+    <div id="top-queries"
+         hx-get="/dashboard/api/top-queries?limit=10"
+         hx-trigger="load"
+         hx-target="#top-queries"
+         hx-swap="innerHTML">
+      <p style="color:var(--muted)">Carregando...</p>
+    </div>
+  </div>
+
+  <!-- Top artigos -->
+  <div class="card">
+    <h2 style="margin-bottom:.8rem">Artigos mais pesquisados</h2>
+    <div id="top-articles"
+         hx-get="/dashboard/api/top-articles?limit=10"
+         hx-trigger="load"
+         hx-target="#top-articles"
+         hx-swap="innerHTML">
+      <p style="color:var(--muted)">Carregando...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentRange = 7;
+let timeseriesChart = null;
+
+function setRange(days, btn) {
+  currentRange = days;
+  document.querySelectorAll('.range-selector button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const kpiSection = document.getElementById('kpi-section');
+  htmx.ajax('GET', `/dashboard/api/stats?range=${days}`, {target: '#kpi-section', swap: 'outerHTML'});
+  loadTimeseries(days);
+}
+
+async function loadTimeseries(days) {
+  const resp = await fetch(`/dashboard/api/timeseries?days=${days}`, {
+    headers: {'Authorization': 'Basic ' + btoa(window._dashCredentials || '')}
+  });
+  if (!resp.ok) return;
+  const data = await resp.json();
+  const labels = data.map(d => d.day);
+  const values = data.map(d => d.total);
+
+  if (timeseriesChart) timeseriesChart.destroy();
+  const ctx = document.getElementById('timeseriesChart').getContext('2d');
+  timeseriesChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Pesquisas',
+        data: values,
+        borderColor: '#1a73e8',
+        backgroundColor: 'rgba(26,115,232,0.08)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } },
+        x: { ticks: { maxTicksLimit: 8 } }
+      }
+    }
+  });
+}
+
+// HTMX responses para KPIs virão como HTML via server (ver abaixo)
+// Timeseries usa fetch pois precisa do Chart.js
+document.addEventListener('DOMContentLoaded', () => loadTimeseries(7));
+
+// Intercepta respostas JSON do HTMX e renderiza tabelas inline
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+  // KPIs são renderizados pelo servidor como HTML parcial
+});
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+<table>
+  <thead><tr><th>Assunto</th><th>Artigos</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.subject }}</td>
+      <td><span class="badge">{{ row.count }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="2" style="color:var(--muted)">Nenhum dado disponível.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

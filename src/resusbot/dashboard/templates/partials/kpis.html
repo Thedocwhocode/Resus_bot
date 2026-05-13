@@ -1,0 +1,22 @@
+<div class="kpi-grid"
+     id="kpi-section"
+     hx-get="/dashboard/api/stats?range={{ range }}"
+     hx-trigger="every 60s"
+     hx-target="#kpi-section"
+     hx-swap="outerHTML">
+  <div class="card">
+    <h2>Total de pesquisas</h2>
+    <div class="value">{{ data.total_queries }}</div>
+    <div class="sub">Últimos {{ range }} dias</div>
+  </div>
+  <div class="card">
+    <h2>Usuários únicos</h2>
+    <div class="value">{{ data.unique_users }}</div>
+    <div class="sub">Últimos {{ range }} dias</div>
+  </div>
+  <div class="card">
+    <h2>Taxa de cache</h2>
+    <div class="value" style="color:var(--success)">{{ data.cache_hit_rate }}%</div>
+    <div class="sub">{{ data.cache_hits }} respostas do cache</div>
+  </div>
+</div>
