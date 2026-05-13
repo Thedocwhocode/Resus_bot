@@ -10,7 +10,12 @@ from resusbot.db.models import Article, CacheEntry, Category, SearchArticle, Sea
 
 # ── Users ─────────────────────────────────────────────────────────────────────
 
-async def upsert_user(session: AsyncSession, telegram_id: int, username: str | None = None) -> User:
+async def upsert_user(
+    session: AsyncSession,
+    telegram_id: int,
+    username: str | None = None,
+    increment_count: bool = True,
+) -> User:
     result = await session.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     if user is None:
@@ -18,7 +23,8 @@ async def upsert_user(session: AsyncSession, telegram_id: int, username: str | N
         session.add(user)
     else:
         user.last_seen = datetime.now(timezone.utc)
-        user.request_count += 1
+        if increment_count:
+            user.request_count += 1
         if username:
             user.username = username
     await session.commit()

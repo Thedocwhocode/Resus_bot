@@ -86,8 +86,8 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_middleware(SlowAPIMiddleware)
 
-    # CORS restrito
-    origins = [settings.dashboard_domain] if settings.dashboard_domain else ["*"]
+    # CORS restrito ao domínio do dashboard; em dev, permite apenas localhost
+    origins = [settings.dashboard_domain] if settings.dashboard_domain else ["http://localhost:8000", "http://127.0.0.1:8000"]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,

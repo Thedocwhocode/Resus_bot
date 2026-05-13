@@ -29,7 +29,7 @@ async def saldo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         from resusbot.services import credits_service
 
         async with get_session_context() as session:
-            user = await upsert_user(session, update.effective_user.id, update.effective_user.username)
+            user = await upsert_user(session, update.effective_user.id, update.effective_user.username, increment_count=False)
             info = await credits_service.check_balance(session, user.id)
 
         plan_line = (
@@ -114,7 +114,7 @@ async def historico_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         from resusbot.db.session import get_session_context
 
         async with get_session_context() as session:
-            user = await upsert_user(session, update.effective_user.id, update.effective_user.username)
+            user = await upsert_user(session, update.effective_user.id, update.effective_user.username, increment_count=False)
             result = await session.execute(
                 select(CreditTransaction)
                 .where(CreditTransaction.user_id == user.id)
@@ -172,7 +172,7 @@ async def cancelar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         from resusbot.db.session import get_session_context
 
         async with get_session_context() as session:
-            user = await upsert_user(session, update.effective_user.id, update.effective_user.username)
+            user = await upsert_user(session, update.effective_user.id, update.effective_user.username, increment_count=False)
             result = await session.execute(
                 select(Subscription)
                 .where(Subscription.user_id == user.id, Subscription.status == "active")

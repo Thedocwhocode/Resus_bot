@@ -75,6 +75,7 @@ async def has_credits(session: AsyncSession, user_id: int) -> bool:
     """True se o usuário pode realizar 1 busca cobrável."""
     bal = await _get_or_create_balance(session, user_id)
     await _maybe_reset_quota(bal)
+    await session.commit()  # persiste reset de quota se ocorreu
 
     free_quota = settings.free_monthly_credits
     if bal.monthly_quota_used < free_quota:

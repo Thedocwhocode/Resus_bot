@@ -43,7 +43,6 @@ class Settings(BaseSettings):
     mp_return_url: str = ""  # ex: https://t.me/SeuBotUsername
     free_monthly_credits: int = 10
     credit_validity_days: int = 60
-    cache_ttl_seconds_default: int = 604800
 
     # App
     app_env: str = "development"

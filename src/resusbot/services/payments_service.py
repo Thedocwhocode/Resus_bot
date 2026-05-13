@@ -342,20 +342,55 @@ class PaymentsService:
         await session.commit()
         log.info("payment_paid", payment_id=payment.id, user_id=payment.user_id, credits=plan.monthly_credits)
 
+        # Notifica o usuário via Telegram (fire-and-forget)
+        if user:
+            await _notify_payment_confirmed(user.telegram_id, plan)
+
     async def _on_payment_refunded(self, session: AsyncSession, payment: Payment) -> None:
         plan_result = await session.execute(select(Plan).where(Plan.id == payment.plan_id))
         plan = plan_result.scalar_one_or_none()
         if not plan:
             return
-        # Debita os créditos relativos a esse pagamento (até onde houver saldo)
+
+        # Debita somente o que ainda resta (protege contra saldo negativo)
+        from resusbot.services.credits_service import _get_or_create_balance
+        bal = await _get_or_create_balance(session, payment.user_id)
+        amount_to_debit = min(plan.monthly_credits, bal.balance)
+        if amount_to_debit <= 0:
+            log.info("payment_refunded_no_balance", payment_id=payment.id, user_id=payment.user_id)
+            return
+
         await credits_service.credit(
             session,
             user_id=payment.user_id,
-            amount=-plan.monthly_credits,
+            amount=-amount_to_debit,
             reason="refund",
             payment_id=payment.id,
         )
-        log.info("payment_refunded", payment_id=payment.id, user_id=payment.user_id)
+        log.info("payment_refunded", payment_id=payment.id, user_id=payment.user_id, debited=amount_to_debit)
+
+
+async def _notify_payment_confirmed(telegram_id: int, plan: Plan) -> None:
+    """Envia push Telegram confirmando pagamento e saldo atualizado."""
+    try:
+        from resusbot.config import settings
+        from telegram import Bot
+        from telegram.constants import ParseMode
+
+        if not settings.telegram_bot_token:
+            return
+        bot = Bot(token=settings.telegram_bot_token)
+        msg = (
+            f"✅ *Pagamento confirmado\\!*\n\n"
+            f"Plano: *{plan.name}*\n"
+            f"Créditos adicionados: `{plan.monthly_credits}`\n"
+            f"Validade: {plan.validity_days} dias\n\n"
+            f"Use /saldo para conferir seu saldo atualizado\\.\n"
+            f"_Boas pesquisas\\! 🔬_"
+        )
+        await bot.send_message(chat_id=telegram_id, text=msg, parse_mode=ParseMode.MARKDOWN_V2)
+    except Exception as e:
+        log.warning("payment_notify_error", telegram_id=telegram_id, error=str(e))
 
 
 payments_service = PaymentsService()

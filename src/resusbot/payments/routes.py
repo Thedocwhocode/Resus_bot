@@ -55,7 +55,9 @@ async def mercadopago_webhook(request: Request) -> JSONResponse:
 @router.get("/return", response_class=HTMLResponse)
 async def payment_return(request: Request) -> HTMLResponse:
     """Landing simples pós-checkout. Redireciona para o bot Telegram."""
-    bot_url = settings.mp_return_url or "https://t.me/"
+    raw_url = settings.mp_return_url or "https://t.me/"
+    # Valida esquema para prevenir XSS via javascript: ou data: URIs
+    bot_url = raw_url if raw_url.startswith(("https://", "http://")) else "https://t.me/"
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>

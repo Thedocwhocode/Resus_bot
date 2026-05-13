@@ -2,8 +2,16 @@
 Orquestra: verificação de cache → workflow AGNO → persistência no DB.
 """
 import asyncio
+import re
 import time
 from typing import Any
+
+_DOI_PATTERN = re.compile(r"^10\.\d{4,}/\S+$")
+
+
+def _is_doi_query(query: str) -> bool:
+    """True se a query inteira é um DOI (ex: '10.1056/NEJMoa2001282')."""
+    return bool(_DOI_PATTERN.match(query.strip()))
 
 import structlog
 
@@ -85,10 +93,14 @@ class ResearchService:
                 article_ids=payload.get("article_ids", []),
             )
             await self._maybe_consume_credit(user_id, payload, search_log_id)
+            await self._maybe_warn_low_credits(telegram_id, user_id)
             return payload
 
-        # Cache miss — executa workflow
-        response_text = await self._run_workflow(query)
+        # Cache miss — atalho para DOI direto (pula Planner + Search + DOIResolver)
+        if _is_doi_query(query):
+            response_text = await self._run_doi_shortcut(query)
+        else:
+            response_text = await self._run_workflow(query)
         latency = int((time.monotonic() - start) * 1000)
 
         # Extrai metadados básicos do texto de resposta para persistência
@@ -114,7 +126,35 @@ class ResearchService:
             article_ids=article_ids,
         )
         await self._maybe_consume_credit(user_id, payload, search_log_id)
+        await self._maybe_warn_low_credits(telegram_id, user_id)
         return payload
+
+    async def _maybe_warn_low_credits(self, telegram_id: int, user_id: int) -> None:
+        """Avisa o usuário via Telegram quando restar ≤ 3 créditos pagos."""
+        if not user_id:
+            return
+        try:
+            from resusbot.db.session import get_session_context
+            from resusbot.services import credits_service
+            async with get_session_context() as session:
+                info = await credits_service.check_balance(session, user_id)
+            # Avisa só quando balance pago (não quota) estiver baixo
+            if 0 < info.balance <= 3:
+                from resusbot.config import settings
+                from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+                from telegram.constants import ParseMode
+                if not settings.telegram_bot_token:
+                    return
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("💳 Ver planos", callback_data="plan:list")]])
+                bot = Bot(token=settings.telegram_bot_token)
+                await bot.send_message(
+                    chat_id=telegram_id,
+                    text=f"⚠️ Você tem apenas `{info.balance}` crédito\\(s\\) restante\\(s\\)\\!\n\nUse /planos para recarregar antes que acabem\\.",
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=kb,
+                )
+        except Exception as e:
+            log.debug("low_credits_warn_error", error=str(e))
 
     async def _maybe_consume_credit(
         self, user_id: int, payload: dict[str, Any], search_log_id: int | None
@@ -135,9 +175,34 @@ class ResearchService:
         except Exception as e:
             log.warning("consume_error", user_id=user_id, error=str(e))
 
+    async def _run_doi_shortcut(self, doi: str) -> str:
+        """
+        Atalho para queries que já são um DOI puro.
+        Pula Planner + Search + DOIResolver — vai direto a PDFLink + Formatter.
+        Economiza ~3 chamadas LLM (~60 % do custo Groq nesse caso).
+        """
+        loop = asyncio.get_running_loop()
+        workflow = self._get_workflow()
+
+        def _run_sync() -> str:
+            last = "Não foi possível processar sua solicitação."
+            doi_context = f"DOI confirmado pelo usuário: {doi}\nURL: https://doi.org/{doi}"
+            pdf_result = workflow.pdf_finder.run(f"Metadados do artigo:\n{doi_context}")
+            final_context = (
+                f"Pergunta do usuário: {doi}\n\n"
+                f"Metadados encontrados:\n{doi_context}\n\n"
+                f"Link de PDF:\n{pdf_result.content or ''}"
+            )
+            final = workflow.formatter.run(final_context)
+            if final.content:
+                last = final.content
+            return last
+
+        return await loop.run_in_executor(None, _run_sync)
+
     async def _run_workflow(self, query: str) -> str:
         """Executa o workflow AGNO em thread separada (é código síncrono)."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         workflow = self._get_workflow()
 
         def _run_sync() -> str:

@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   internal:
     driver: bridge
@@ -16,7 +14,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --save 60 1 --loglevel warning
+    command: redis-server --appendonly yes --appendfsync everysec --loglevel warning
     volumes:
       - redis_data:/data
     networks:
@@ -40,7 +38,7 @@ services:
 
   # ── OrioSearch ──────────────────────────────────────────────────────────────
   oriosearch:
-    image: oriosearch/oriosearch:latest
+    image: oriosearch/oriosearch:1
     restart: unless-stopped
     environment:
       - SEARXNG_URL=http://searxng:8080
