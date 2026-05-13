@@ -35,9 +35,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await create_tables()
     log.info("database_ready")
 
-    # Seed de categorias
+    # Seed de categorias e planos de billing
     from resusbot.scripts.seed_categories import seed_categories
+    from resusbot.scripts.seed_plans import seed_plans
     await seed_categories()
+    await seed_plans()
+
+    # Inicia scheduler de jobs (reset mensal, expiração de créditos)
+    from resusbot.services.scheduler import start_scheduler, stop_scheduler
+    start_scheduler()
 
     # Constrói aplicação Telegram
     from resusbot.telegram.bot import build_application, setup_webhook, start_polling
@@ -60,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.telegram_mode == "polling" and _bot_app:
         await stop_polling(_bot_app)
 
+    stop_scheduler()
     await close_http_client()
     await close_redis()
     log.info("resusbot_shutdown")
@@ -140,6 +147,10 @@ def create_app() -> FastAPI:
 
     # Dashboard
     app.include_router(dashboard_router)
+
+    # Payments (webhook MP + landing)
+    from resusbot.payments.routes import router as payments_router
+    app.include_router(payments_router)
 
     return app
 

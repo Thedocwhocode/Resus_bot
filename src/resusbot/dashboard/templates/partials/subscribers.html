@@ -1,0 +1,30 @@
+<table>
+  <thead>
+    <tr>
+      <th>ID (hash)</th>
+      <th>Plano</th>
+      <th>Status</th>
+      <th>Início</th>
+      <th>Expira</th>
+      <th>Auto-renova</th>
+      <th>Valor</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><code>{{ row.telegram_id_hash }}</code></td>
+      <td>{{ row.plan_name }}</td>
+      <td>
+        <span class="badge" style="background:{{ '#e6f4ea' if row.status == 'active' else '#fce8e6' }}; color:{{ 'var(--success)' if row.status == 'active' else 'var(--danger)' }}">{{ row.status }}</span>
+      </td>
+      <td>{{ row.started_at }}</td>
+      <td>{{ row.current_period_end }}</td>
+      <td>{{ '✓' if row.auto_renew else '✗' }}</td>
+      <td>R$ {{ "%.2f"|format(row.price_brl) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="color:var(--muted); text-align:center; padding:1rem;">Nenhum assinante encontrado.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

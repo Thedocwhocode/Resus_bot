@@ -77,6 +77,15 @@ Checklist de implementação por fases.
 - [x] `tests/test_category_classifier.py`
 - [x] `tests/test_repository.py`
 
+## Fase 9 — SaaS de créditos ✅
+- [x] **9.1** Schema (Plan, Subscription, CreditBalance, CreditTransaction, Payment) + seed 5 planos
+- [x] **9.2** `credits_service.py` + integração no `research_service.handle()` (gate + consume)
+- [x] **9.3** Comandos Telegram `/saldo`, `/planos`, `/historico`, `/cancelar` + `CallbackQueryHandler`
+- [x] **9.4** `payments_service.py` + `MercadoPagoProvider` + webhook idempotente + landing
+- [x] **9.5** Dashboard `/dashboard/billing` (MRR, ARPU, churn, conversão, custo Groq, subscribers)
+- [x] **9.6** APScheduler (reset mensal, expiração de créditos, expiração de assinaturas)
+- [x] **9.7** Testes `test_credits.py`, `test_payments.py` + README billing
+
 ## Pendente / Melhorias futuras
 - [ ] Migrar para Alembic migrations (atualmente usa create_all)
 - [ ] Adicionar testes de integração para o workflow AGNO (com mocks LLM)
@@ -85,3 +94,7 @@ Checklist de implementação por fases.
 - [ ] Alertas de degradação de serviço (Redis down, OrioSearch offline)
 - [ ] Suporte a múltiplos idiomas na resposta do bot
 - [ ] Migrar SQLite → PostgreSQL quando search_logs > 1M
+- [ ] Stripe como segundo provider (manter ABC PaymentProvider)
+- [ ] Integração eNotas/Bling para emissão de NFS-e (Fase 10)
+- [ ] Comando admin `/admin_refund` para reembolso manual
+- [ ] Dashboard: gráfico de cohort de retenção e LTV

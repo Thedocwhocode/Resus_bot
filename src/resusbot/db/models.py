@@ -30,8 +30,20 @@ class User(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), index=True)
     request_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    current_plan_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("plans.id"), nullable=True
+    )
 
     searches: Mapped[list["SearchLog"]] = relationship("SearchLog", back_populates="user")
+    current_plan: Mapped["Plan | None"] = relationship("Plan", foreign_keys=[current_plan_id])
+    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="user")
+    credit_balance: Mapped["CreditBalance | None"] = relationship(
+        "CreditBalance", back_populates="user", uselist=False
+    )
+    credit_transactions: Mapped[list["CreditTransaction"]] = relationship(
+        "CreditTransaction", back_populates="user"
+    )
+    payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="user")
 
 
 class Category(Base):
@@ -108,3 +120,101 @@ class CacheEntry(Base):
     hits: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
     last_used_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), index=True, nullable=False)
+
+
+# ── Billing (Fase 9 — SaaS de créditos) ──────────────────────────────────────
+
+
+class Plan(Base):
+    __tablename__ = "plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    monthly_credits: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_brl_cents: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    validity_days: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
+    is_free: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+    __table_args__ = (Index("ix_subscriptions_user_status", "user_id", "status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("plans.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)  # active|cancelled|expired|past_due
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+    current_period_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    cancel_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), default="mercadopago", nullable=False)
+    provider_subscription_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="subscriptions")
+    plan: Mapped["Plan"] = relationship("Plan")
+
+
+class CreditBalance(Base):
+    __tablename__ = "credit_balances"
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), primary_key=True)
+    balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    monthly_quota_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    quota_resets_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="credit_balance")
+
+
+class CreditTransaction(Base):
+    __tablename__ = "credit_transactions"
+    __table_args__ = (
+        Index("ix_credit_transactions_user_created", "user_id", "created_at"),
+        Index("ix_credit_transactions_expires", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    delta: Mapped[int] = mapped_column(Integer, nullable=False)  # positivo = crédito, negativo = consumo
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+    # purchase | consume | refund | monthly_reset | bonus | expiration
+    search_log_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("search_logs.id"), nullable=True)
+    payment_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("payments.id"), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="credit_transactions")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+    __table_args__ = (
+        Index("ix_payments_user_status", "user_id", "status"),
+        Index("ix_payments_event_id", "provider_event_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("plans.id"), nullable=False)
+    amount_brl_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), default="BRL", nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
+    # pending | paid | failed | refunded | disputed
+    provider: Mapped[str] = mapped_column(String(32), default="mercadopago", nullable=False)
+    provider_payment_ref: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+    provider_event_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+    pix_qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkout_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+    raw_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="payments")
+    plan: Mapped["Plan"] = relationship("Plan")

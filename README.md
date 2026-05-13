@@ -136,6 +136,67 @@ src/resusbot/
 └── scripts/             # Seed de categorias
 ```
 
+## SaaS — Sistema de créditos (opcional)
+
+Versão hospedada (não auto-hospedada) com cobrança por crédito.
+
+### Regra de cobrança "no sucesso"
+
+Um crédito é consumido **apenas** se a busca retornar pelo menos 1 artigo COM link de PDF / open access confirmado. Erros, respostas vazias ou resultados apenas com metadata **não consomem crédito**.
+
+Cache hits COM PDF **também consomem** (margem extra — custo Groq zero, lucro puro).
+
+### Planos
+
+| Plano | Créditos | Preço | R$/crédito | Validade |
+|---|---|---|---|---|
+| Gratuito | 10/mês | grátis | — | 30 dias (reseta) |
+| Plantão | 50 | R$ 14,90 | R$ 0,30 | 60 dias |
+| Residente | 150 | R$ 34,90 | R$ 0,23 | 60 dias |
+| Especialista | 400 | R$ 79,90 | R$ 0,20 | 60 dias |
+| Pesquisador | 1.200 | R$ 199,00 | R$ 0,17 | 60 dias |
+
+Pagamento via **Mercado Pago** (PIX, cartão, boleto).
+
+### Comandos Telegram (billing)
+
+- `/saldo` — créditos disponíveis, plano atual, quota grátis
+- `/planos` — lista planos com botões inline para assinar
+- `/historico` — últimas 10 transações de crédito
+- `/cancelar` — desativa renovação automática (mantém créditos até fim do período)
+
+### Dashboard admin
+
+Acesse `/dashboard/billing` para:
+- MRR (Monthly Recurring Revenue)
+- ARPU (receita média por usuário)
+- Conversão free → pago
+- Churn rate
+- Custo Groq do período
+- Lista de assinantes com filtros
+
+### Setup do Mercado Pago
+
+1. Crie aplicação em [https://www.mercadopago.com.br/developers](https://www.mercadopago.com.br/developers)
+2. Copie o `Access Token` (sandbox: `TEST-...`, prod: `APP_USR-...`)
+3. Configure `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `MP_NOTIFICATION_URL` no `.env`
+4. Registre a URL de webhook no painel MP: `https://seudominio.com/payments/webhook/mercadopago`
+5. Em dev, use `ngrok http 8000` e registre a URL temporária
+
+### Testar localmente
+
+```bash
+# Sandbox MP — cartão de teste: 5031 7557 3453 0604, CVV 123, val 11/30
+APP_ENV=development uv run uvicorn resusbot.main:app --reload
+
+# No Telegram:
+/planos                     # ver opções
+# clicar "Plantão"
+# pagar com cartão teste → webhook chega → créditos liberados
+/saldo                      # confirmar 50 créditos
+/historico                  # ver transação de purchase
+```
+
 ## Categorias de artigos (ML-ready)
 
 | ID | Slug | Categoria |

@@ -1,0 +1,37 @@
+<div class="kpi-grid"
+     id="billing-kpis"
+     hx-get="/dashboard/api/billing-kpis"
+     hx-trigger="every 60s"
+     hx-target="#billing-kpis"
+     hx-swap="outerHTML">
+  <div class="card">
+    <h2>MRR</h2>
+    <div class="value" style="color:var(--success)">R$ {{ "%.2f"|format(data.mrr_brl) }}</div>
+    <div class="sub">{{ data.paying_users }} pagantes</div>
+  </div>
+  <div class="card">
+    <h2>ARPU</h2>
+    <div class="value">R$ {{ "%.2f"|format(data.arpu_brl) }}</div>
+    <div class="sub">por usuário pagante</div>
+  </div>
+  <div class="card">
+    <h2>Conversão (90d)</h2>
+    <div class="value">{{ data.conversion_rate }}%</div>
+    <div class="sub">free → pago</div>
+  </div>
+  <div class="card">
+    <h2>Churn (30d)</h2>
+    <div class="value" style="color:{{ 'var(--danger)' if data.churn_rate > 10 else 'var(--text)' }}">{{ data.churn_rate }}%</div>
+    <div class="sub">cancelados/expirados</div>
+  </div>
+  <div class="card">
+    <h2>Custo Groq (30d)</h2>
+    <div class="value" style="color:var(--warning)">R$ {{ "%.2f"|format(data.groq_cost_brl) }}</div>
+    <div class="sub">{{ data.miss_count_30d }} cache misses</div>
+  </div>
+  <div class="card">
+    <h2>Usuários totais</h2>
+    <div class="value">{{ data.total_users }}</div>
+    <div class="sub">cadastrados no bot</div>
+  </div>
+</div>

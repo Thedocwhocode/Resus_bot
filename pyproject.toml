@@ -25,6 +25,8 @@ dependencies = [
     "itsdangerous>=2.2.0",
     "structlog>=24.4.0",
     "python-multipart>=0.0.9",
+    "mercadopago>=2.2.3",
+    "apscheduler>=3.10.4",
 ]
 
 [project.optional-dependencies]

@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     rate_limit_per_ip: int = 60
     rate_limit_per_user: int = 20
 
+    # Billing / Mercado Pago
+    mp_access_token: str = ""
+    mp_webhook_secret: str = "changeme"
+    mp_notification_url: str = ""  # ex: https://seudominio.com/payments/webhook/mercadopago
+    mp_return_url: str = ""  # ex: https://t.me/SeuBotUsername
+    free_monthly_credits: int = 10
+    credit_validity_days: int = 60
+    cache_ttl_seconds_default: int = 604800
+
     # App
     app_env: str = "development"
     log_level: str = "INFO"

@@ -128,7 +128,26 @@ async def _process_query(update: Update, raw_query: str) -> None:
         service = get_research_service()
         result = await service.handle(query=query, telegram_id=user_id)
         latency = int((time.monotonic() - start) * 1000)
-        log.info("search_done", telegram_id=user_id, latency_ms=latency, cache_hit=result.get("cache_hit"))
+        log.info(
+            "search_done",
+            telegram_id=user_id,
+            latency_ms=latency,
+            cache_hit=result.get("cache_hit"),
+            error=result.get("error"),
+        )
+
+        # Saldo insuficiente — oferece botão "Ver planos"
+        if result.get("error") == "insufficient_credits":
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            kb = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("💳 Ver planos", callback_data="plan:list")]]
+            )
+            await typing_msg.edit_text(
+                format_error(result["response"]),
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=kb,
+            )
+            return
 
         formatted, keyboard = format_research_response(result["response"])
         await typing_msg.edit_text(formatted, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
+  <a href="/dashboard" style="color:var(--muted)">← Dashboard principal</a>
+  <span style="color:var(--muted)">|</span>
+  <strong>💰 Billing</strong>
+</div>
+
+<!-- KPIs de billing -->
+<div id="billing-kpis"
+     hx-get="/dashboard/api/billing-kpis"
+     hx-trigger="load, every 60s"
+     hx-target="#billing-kpis"
+     hx-swap="outerHTML">
+  <div class="card"><h2>Carregando...</h2></div>
+</div>
+
+<!-- Gráfico de receita -->
+<div class="card" style="margin-bottom:1.5rem">
+  <h2 style="margin-bottom:1rem">Receita por dia (últimos 30 dias)</h2>
+  <div class="chart-wrap">
+    <canvas id="revenueChart"></canvas>
+  </div>
+</div>
+
+<!-- Tabela de assinantes -->
+<div class="card">
+  <h2 style="margin-bottom:.8rem">Assinantes</h2>
+  <div style="margin-bottom:.8rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+    <button class="active" onclick="filterSubs(null, null, this)">Todos</button>
+    <button onclick="filterSubs('plantao', 'active', this)">Plantão ativos</button>
+    <button onclick="filterSubs('residente', 'active', this)">Residente ativos</button>
+    <button onclick="filterSubs('especialista', 'active', this)">Especialista ativos</button>
+    <button onclick="filterSubs('pesquisador', 'active', this)">Pesquisador ativos</button>
+    <button onclick="filterSubs(null, 'cancelled', this)">Cancelados</button>
+  </div>
+  <div id="subscribers"
+       hx-get="/dashboard/api/subscribers?limit=50"
+       hx-trigger="load"
+       hx-target="#subscribers"
+       hx-swap="innerHTML">
+    <p style="color:var(--muted)">Carregando...</p>
+  </div>
+</div>
+
+<style>
+.range-selector button.active, .card button.active {
+  background: var(--primary) !important;
+  color: #fff !important;
+  border-color: var(--primary) !important;
+}
+.card button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: .3rem .8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: .85rem;
+}
+</style>
+
+<script>
+let revenueChart = null;
+
+function filterSubs(plan, status, btn) {
+  document.querySelectorAll('.card button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  let url = '/dashboard/api/subscribers?limit=50';
+  if (plan) url += `&plan=${plan}`;
+  if (status) url += `&status=${status}`;
+  htmx.ajax('GET', url, {target: '#subscribers', swap: 'innerHTML'});
+}
+
+async function loadRevenue() {
+  const resp = await fetch('/dashboard/api/revenue?days=30');
+  if (!resp.ok) return;
+  const data = await resp.json();
+  const labels = data.map(d => d.day);
+  const values = data.map(d => d.total_brl);
+
+  if (revenueChart) revenueChart.destroy();
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  revenueChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'R$',
+        data: values,
+        backgroundColor: '#34a853',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => 'R$ ' + v } },
+        x: { ticks: { maxTicksLimit: 8 } }
+      }
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', loadRevenue);
+</script>
+{% endblock %}

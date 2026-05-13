@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
+  <strong>📊 Dashboard principal</strong>
+  <span style="color:var(--muted)">|</span>
+  <a href="/dashboard/billing" style="color:var(--primary)">💰 Billing</a>
+</div>
+
 <!-- Range selector -->
 <div class="range-selector" id="range-selector">
   <button class="active" onclick="setRange(7, this)">7 dias</button>
