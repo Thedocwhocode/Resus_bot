@@ -1,4 +1,3 @@
-import pytest
 from resusbot.security.sanitize import clean, escape_markdown_v2
 
 

@@ -21,10 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 RUN groupadd --gid 10001 appgroup && \
     useradd --uid 10001 --gid appgroup --no-create-home appuser
 
-WORKDIR /app
-
 COPY --from=builder /opt/venv /opt/venv
-COPY src/ src/
 
 RUN mkdir -p /data && chown appuser:appgroup /data
 

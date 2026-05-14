@@ -2,9 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from resusbot.security.sanitize import escape_markdown_v2
 
-DISCLAIMER = (
-    "\n\n_ℹ️ Conteúdo informativo\\. Não substitui julgamento clínico\\._"
-)
+DISCLAIMER = "\n\n_ℹ️ Conteúdo informativo\\. Não substitui julgamento clínico\\._"
 
 MAX_MESSAGE_LENGTH = 4000
 

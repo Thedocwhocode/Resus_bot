@@ -1,7 +1,8 @@
 import pytest
 import pytest_asyncio
-from resusbot.services.dedup_service import normalize_doi, upsert_article_safe
+
 from resusbot.scripts.seed_categories import seed_categories
+from resusbot.services.dedup_service import normalize_doi, upsert_article_safe
 
 
 @pytest_asyncio.fixture(autouse=True)

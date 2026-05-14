@@ -31,6 +31,7 @@ async def get_cached_response(query: str) -> dict[str, Any] | None:
     key = f"cache:query:{hash_query(normalized)}"
     try:
         from resusbot.cache.redis_client import get_redis
+
         redis = await get_redis()
         raw = await redis.get(key)
         if raw:
@@ -48,6 +49,7 @@ async def set_cached_response(query: str, response: dict[str, Any]) -> None:
     key = f"cache:query:{h}"
     try:
         from resusbot.cache.redis_client import get_redis
+
         redis = await get_redis()
         await redis.setex(key, settings.cache_ttl_seconds, json.dumps(response))
         log.info("cache_set_redis", query_hash=h[-12:], ttl=settings.cache_ttl_seconds)
@@ -55,6 +57,7 @@ async def set_cached_response(query: str, response: dict[str, Any]) -> None:
         # Persiste no SQLite como backup
         from resusbot.db.repository import upsert_cache_entry
         from resusbot.db.session import get_session_context
+
         async with get_session_context() as session:
             await upsert_cache_entry(session, h, normalized, response)
     except Exception as e:
@@ -68,6 +71,7 @@ async def get_cached_response_fallback(query: str) -> dict[str, Any] | None:
     try:
         from resusbot.db.repository import get_cache_entry
         from resusbot.db.session import get_session_context
+
         async with get_session_context() as session:
             entry = await get_cache_entry(session, h)
             if entry:

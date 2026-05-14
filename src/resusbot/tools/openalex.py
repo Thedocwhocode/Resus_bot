@@ -1,4 +1,5 @@
 """Tool AGNO para OpenAlex API (gratuito, email para polite pool)."""
+
 import asyncio
 
 from agno.tools import Toolkit

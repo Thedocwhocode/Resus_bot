@@ -3,7 +3,8 @@ Workflow AGNO completo para pesquisa de artigos científicos.
 5 agentes: Planner → Search → DOIResolver → PDFLink → Formatter
 LLM: Groq (Llama 3.3 70B Versatile)
 """
-from typing import Iterator
+
+from collections.abc import Iterator
 
 import structlog
 from agno.agent import Agent
@@ -122,9 +123,7 @@ class ResearchWorkflow(Workflow):
         # Step 2: Busca web (se não tiver DOI direto)
         if not has_doi:
             yield RunResponse(content="🌐 Buscando artigo na web...")
-            search_result = self.searcher.run(
-                f"Encontre o artigo científico: {user_message}"
-            )
+            search_result = self.searcher.run(f"Encontre o artigo científico: {user_message}")
             search_context = search_result.content or ""
         else:
             search_context = ""
@@ -139,9 +138,7 @@ class ResearchWorkflow(Workflow):
 
         # Step 4: Buscar PDF
         yield RunResponse(content="📥 Verificando disponibilidade de PDF...")
-        pdf_result = self.pdf_finder.run(
-            f"Metadados do artigo:\n{doi_result.content or ''}"
-        )
+        pdf_result = self.pdf_finder.run(f"Metadados do artigo:\n{doi_result.content or ''}")
 
         # Step 5: Formatar
         yield RunResponse(content="✍️ Formatando resposta...")

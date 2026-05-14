@@ -9,22 +9,26 @@ Fluxo:
    garante idempotência via `Payment.provider_event_id`, credita o usuário e
    cria/renova `Subscription`.
 """
+
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from resusbot.config import settings
 from resusbot.db.models import Payment, Plan, Subscription, User
 from resusbot.services import credits_service
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -33,12 +37,12 @@ class PaymentProvider(ABC):
     name: str
 
     @abstractmethod
-    async def create_preference(self, payment: Payment, plan: Plan, user: User) -> dict[str, Any]:
-        ...
+    async def create_preference(
+        self, payment: Payment, plan: Plan, user: User
+    ) -> dict[str, Any]: ...
 
     @abstractmethod
-    def verify_signature(self, raw_body: bytes, headers: dict[str, str]) -> bool:
-        ...
+    def verify_signature(self, raw_body: bytes, headers: dict[str, str]) -> bool: ...
 
     @abstractmethod
     def parse_event(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -65,6 +69,7 @@ class MercadoPagoProvider(PaymentProvider):
         if self._sdk is None:
             try:
                 import mercadopago  # type: ignore[import-untyped]
+
                 self._sdk = mercadopago.SDK(settings.mp_access_token)
             except Exception as e:
                 log.warning("mp_sdk_init_error", error=str(e))
@@ -106,7 +111,7 @@ class MercadoPagoProvider(PaymentProvider):
             },
         }
         try:
-            result = sdk.preference().create(preference_data)
+            result = await asyncio.to_thread(lambda: sdk.preference().create(preference_data))
             response = result.get("response", {})
             checkout_url = response.get("init_point") or response.get("sandbox_init_point", "")
             preference_id = response.get("id")
@@ -263,7 +268,7 @@ class PaymentsService:
             payment.status = event["status"]
             payment.raw_payload = event["raw"]
             if event["status"] == "paid":
-                payment.paid_at = datetime.now(timezone.utc)
+                payment.paid_at = datetime.now(UTC)
 
             await session.commit()
         except IntegrityError:
@@ -278,7 +283,9 @@ class PaymentsService:
 
         return {"status": "ok", "payment_status": event["status"]}
 
-    async def _fetch_payment_details(self, provider: PaymentProvider, payment_id: str) -> dict[str, Any] | None:
+    async def _fetch_payment_details(
+        self, provider: PaymentProvider, payment_id: str
+    ) -> dict[str, Any] | None:
         """Consulta detalhes do pagamento via API MP."""
         if not isinstance(provider, MercadoPagoProvider):
             return None
@@ -286,7 +293,7 @@ class PaymentsService:
         if sdk is None:
             return None
         try:
-            result = sdk.payment().get(payment_id)
+            result = await asyncio.to_thread(lambda: sdk.payment().get(payment_id))
             return result.get("response")  # type: ignore[no-any-return]
         except Exception as e:
             log.warning("mp_fetch_payment_error", error=str(e), payment_id=payment_id)
@@ -299,7 +306,7 @@ class PaymentsService:
             return
 
         # Credita
-        expires_at = datetime.now(timezone.utc) + timedelta(days=plan.validity_days)
+        expires_at = datetime.now(UTC) + timedelta(days=plan.validity_days)
         await credits_service.credit(
             session,
             user_id=payment.user_id,
@@ -316,22 +323,24 @@ class PaymentsService:
             .order_by(Subscription.current_period_end.desc())
         )
         existing = sub_result.scalars().first()
-        period_end = datetime.now(timezone.utc) + timedelta(days=plan.validity_days)
+        period_end = datetime.now(UTC) + timedelta(days=plan.validity_days)
         if existing:
             existing.plan_id = plan.id
             existing.current_period_end = period_end
             existing.auto_renew = True
-            existing.updated_at = datetime.now(timezone.utc)
+            existing.updated_at = datetime.now(UTC)
         else:
-            session.add(Subscription(
-                user_id=payment.user_id,
-                plan_id=plan.id,
-                status="active",
-                current_period_end=period_end,
-                auto_renew=True,
-                provider="mercadopago",
-                provider_subscription_ref=payment.provider_payment_ref,
-            ))
+            session.add(
+                Subscription(
+                    user_id=payment.user_id,
+                    plan_id=plan.id,
+                    status="active",
+                    current_period_end=period_end,
+                    auto_renew=True,
+                    provider="mercadopago",
+                    provider_subscription_ref=payment.provider_payment_ref,
+                )
+            )
 
         # Atualiza user.current_plan_id
         user_result = await session.execute(select(User).where(User.id == payment.user_id))
@@ -340,7 +349,12 @@ class PaymentsService:
             user.current_plan_id = plan.id
 
         await session.commit()
-        log.info("payment_paid", payment_id=payment.id, user_id=payment.user_id, credits=plan.monthly_credits)
+        log.info(
+            "payment_paid",
+            payment_id=payment.id,
+            user_id=payment.user_id,
+            credits=plan.monthly_credits,
+        )
 
         # Notifica o usuário via Telegram (fire-and-forget)
         if user:
@@ -354,6 +368,7 @@ class PaymentsService:
 
         # Debita somente o que ainda resta (protege contra saldo negativo)
         from resusbot.services.credits_service import _get_or_create_balance
+
         bal = await _get_or_create_balance(session, payment.user_id)
         amount_to_debit = min(plan.monthly_credits, bal.balance)
         if amount_to_debit <= 0:
@@ -367,15 +382,21 @@ class PaymentsService:
             reason="refund",
             payment_id=payment.id,
         )
-        log.info("payment_refunded", payment_id=payment.id, user_id=payment.user_id, debited=amount_to_debit)
+        log.info(
+            "payment_refunded",
+            payment_id=payment.id,
+            user_id=payment.user_id,
+            debited=amount_to_debit,
+        )
 
 
 async def _notify_payment_confirmed(telegram_id: int, plan: Plan) -> None:
     """Envia push Telegram confirmando pagamento e saldo atualizado."""
     try:
-        from resusbot.config import settings
         from telegram import Bot
         from telegram.constants import ParseMode
+
+        from resusbot.config import settings
 
         if not settings.telegram_bot_token:
             return

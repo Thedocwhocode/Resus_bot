@@ -1,12 +1,12 @@
 """Queries agregadas para o dashboard de billing (MRR, churn, ARPU, etc.)."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from resusbot.db.models import (
-    CreditTransaction,
     Payment,
     Plan,
     SearchLog,
@@ -31,32 +31,33 @@ async def get_billing_kpis(session: AsyncSession) -> dict[str, Any]:
     # Usuários totais e pagantes
     total_users = (await session.execute(select(func.count(User.id)))).scalar() or 0
     paying_result = await session.execute(
-        select(func.count(func.distinct(Subscription.user_id)))
-        .where(Subscription.status == "active")
+        select(func.count(func.distinct(Subscription.user_id))).where(
+            Subscription.status == "active"
+        )
     )
     paying_users: int = paying_result.scalar() or 0
 
     arpu_cents = (mrr_cents / paying_users) if paying_users else 0
 
     # Conversão free → pago (últimos 90d)
-    cutoff_90 = datetime.now(timezone.utc) - timedelta(days=90)
+    cutoff_90 = datetime.now(UTC) - timedelta(days=90)
     new_users_result = await session.execute(
         select(func.count(User.id)).where(User.first_seen >= cutoff_90)
     )
     new_users = new_users_result.scalar() or 0
 
     paid_users_result = await session.execute(
-        select(func.count(func.distinct(Payment.user_id)))
-        .where(Payment.status == "paid", Payment.paid_at >= cutoff_90)
+        select(func.count(func.distinct(Payment.user_id))).where(
+            Payment.status == "paid", Payment.paid_at >= cutoff_90
+        )
     )
     paid_users: int = paid_users_result.scalar() or 0
     conversion_rate = round((paid_users / new_users * 100), 1) if new_users else 0.0
 
     # Churn: assinaturas que viraram 'cancelled' ou 'expired' nos últimos 30d
-    cutoff_30 = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff_30 = datetime.now(UTC) - timedelta(days=30)
     churned_result = await session.execute(
-        select(func.count(Subscription.id))
-        .where(
+        select(func.count(Subscription.id)).where(
             Subscription.status.in_(["cancelled", "expired"]),
             Subscription.updated_at >= cutoff_30,
         )
@@ -65,10 +66,11 @@ async def get_billing_kpis(session: AsyncSession) -> dict[str, Any]:
     churn_rate = round((churned / max(paying_users + churned, 1) * 100), 1)
 
     # Custo Groq do mês (cache miss)
-    cutoff_month = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff_month = datetime.now(UTC) - timedelta(days=30)
     miss_result = await session.execute(
-        select(func.count(SearchLog.id))
-        .where(SearchLog.cache_hit.is_(False), SearchLog.created_at >= cutoff_month)
+        select(func.count(SearchLog.id)).where(
+            SearchLog.cache_hit.is_(False), SearchLog.created_at >= cutoff_month
+        )
     )
     miss_count = miss_result.scalar() or 0
     groq_cost_cents = miss_count * COST_GROQ_PER_MISS_BRL_CENTS
@@ -106,21 +108,23 @@ async def get_subscribers(
 
     out = []
     for sub, plan, user in rows:
-        out.append({
-            "telegram_id_hash": hashlib.sha256(str(user.telegram_id).encode()).hexdigest()[:12],
-            "plan_name": plan.name,
-            "status": sub.status,
-            "started_at": sub.started_at.strftime("%d/%m/%Y"),
-            "current_period_end": sub.current_period_end.strftime("%d/%m/%Y"),
-            "auto_renew": sub.auto_renew,
-            "price_brl": round(plan.price_brl_cents / 100, 2),
-        })
+        out.append(
+            {
+                "telegram_id_hash": hashlib.sha256(str(user.telegram_id).encode()).hexdigest()[:12],
+                "plan_name": plan.name,
+                "status": sub.status,
+                "started_at": sub.started_at.strftime("%d/%m/%Y"),
+                "current_period_end": sub.current_period_end.strftime("%d/%m/%Y"),
+                "auto_renew": sub.auto_renew,
+                "price_brl": round(plan.price_brl_cents / 100, 2),
+            }
+        )
     return out
 
 
 async def get_revenue_timeseries(session: AsyncSession, days: int = 30) -> list[dict[str, Any]]:
     """Receita diária (paid payments) nos últimos N dias."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     rows = await session.execute(
         select(
             func.date(Payment.paid_at).label("day"),
@@ -131,6 +135,9 @@ async def get_revenue_timeseries(session: AsyncSession, days: int = 30) -> list[
         .order_by("day")
     )
     return [
-        {"day": row.day if isinstance(row.day, str) else row.day.isoformat(), "total_brl": round((row.total or 0) / 100, 2)}
+        {
+            "day": row.day if isinstance(row.day, str) else row.day.isoformat(),
+            "total_brl": round((row.total or 0) / 100, 2),
+        }
         for row in rows
     ]

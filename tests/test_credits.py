@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+
 from resusbot.scripts.seed_categories import seed_categories
 from resusbot.scripts.seed_plans import seed_plans
 from resusbot.services import credits_service
@@ -13,6 +14,7 @@ async def seed(db_session):
 
 async def _create_user(session, telegram_id=12345):
     from resusbot.db.repository import upsert_user
+
     user = await upsert_user(session, telegram_id=telegram_id)
     return user.id
 

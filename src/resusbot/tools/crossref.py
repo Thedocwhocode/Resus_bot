@@ -1,4 +1,5 @@
 """Tool AGNO para Crossref REST API (gratuito, sem chave)."""
+
 import asyncio
 
 from agno.tools import Toolkit

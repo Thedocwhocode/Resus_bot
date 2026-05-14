@@ -3,15 +3,20 @@ Handlers Telegram para a camada de billing/SaaS:
 - /saldo, /planos, /historico, /cancelar
 - CallbackQueryHandler para botões inline (compra de plano, confirmação cancelar)
 """
+
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import desc, select
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
-from telegram.ext import ContextTypes
 
 from resusbot.security.sanitize import escape_markdown_v2
+
+if TYPE_CHECKING:
+    from telegram.ext import ContextTypes
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -29,17 +34,22 @@ async def saldo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         from resusbot.services import credits_service
 
         async with get_session_context() as session:
-            user = await upsert_user(session, update.effective_user.id, update.effective_user.username, increment_count=False)
+            user = await upsert_user(
+                session,
+                update.effective_user.id,
+                update.effective_user.username,
+                increment_count=False,
+            )
             info = await credits_service.check_balance(session, user.id)
 
         plan_line = (
-            f"📦 Plano: *{escape_markdown_v2(info.plan_name)}*" if info.plan_name else "📦 Plano: *Gratuito*"
+            f"📦 Plano: *{escape_markdown_v2(info.plan_name)}*"
+            if info.plan_name
+            else "📦 Plano: *Gratuito*"
         )
         expires_line = ""
         if info.subscription_expires_at:
-            expires_line = (
-                f"\n📅 Renova em: `{info.subscription_expires_at.strftime('%d/%m/%Y')}`"
-            )
+            expires_line = f"\n📅 Renova em: `{info.subscription_expires_at.strftime('%d/%m/%Y')}`"
         msg = (
             f"💳 *Seu saldo*\n\n"
             f"{plan_line}\n"
@@ -51,7 +61,9 @@ async def saldo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN_V2)
     except Exception as e:
         log.warning("saldo_handler_error", error=str(e))
-        await update.message.reply_text("Não foi possível consultar seu saldo no momento\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            "Não foi possível consultar seu saldo no momento\\.", parse_mode=ParseMode.MARKDOWN_V2
+        )
 
 
 async def planos_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -81,12 +93,14 @@ async def planos_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 f"\n📦 *{escape_markdown_v2(p.name)}*: `{p.monthly_credits}` créditos por {price}"
                 f"\n   ↳ {per_credit} por crédito, válido por {p.validity_days} dias"
             )
-            buttons.append([
-                InlineKeyboardButton(
-                    text=f"💳 Assinar {p.name} — {_format_price(p.price_brl_cents)}",
-                    callback_data=f"plan:buy:{p.slug}",
-                )
-            ])
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"💳 Assinar {p.name} — {_format_price(p.price_brl_cents)}",
+                        callback_data=f"plan:buy:{p.slug}",
+                    )
+                ]
+            )
 
         lines.append(
             "\n\nℹ️ _Cada crédito \\= 1 busca bem\\-sucedida com link de PDF\\._"
@@ -114,7 +128,12 @@ async def historico_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         from resusbot.db.session import get_session_context
 
         async with get_session_context() as session:
-            user = await upsert_user(session, update.effective_user.id, update.effective_user.username, increment_count=False)
+            user = await upsert_user(
+                session,
+                update.effective_user.id,
+                update.effective_user.username,
+                increment_count=False,
+            )
             result = await session.execute(
                 select(CreditTransaction)
                 .where(CreditTransaction.user_id == user.id)
@@ -143,14 +162,16 @@ async def historico_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             ts = tx.created_at.strftime("%d/%m %H:%M")
             sign = "\\+" if tx.delta > 0 else ""
             emoji = emoji_by_reason.get(tx.reason, "•")
-            reason_label = escape_markdown_v2({
-                "purchase": "compra",
-                "consume": "busca",
-                "refund": "reembolso",
-                "bonus": "bônus",
-                "monthly_reset": "reset mensal",
-                "expiration": "expiração",
-            }.get(tx.reason, tx.reason))
+            reason_label = escape_markdown_v2(
+                {
+                    "purchase": "compra",
+                    "consume": "busca",
+                    "refund": "reembolso",
+                    "bonus": "bônus",
+                    "monthly_reset": "reset mensal",
+                    "expiration": "expiração",
+                }.get(tx.reason, tx.reason)
+            )
             lines.append(
                 f"\n{emoji} `{ts}` — {reason_label}: `{sign}{tx.delta}` \\(saldo: `{tx.balance_after}`\\)"
             )
@@ -172,7 +193,12 @@ async def cancelar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         from resusbot.db.session import get_session_context
 
         async with get_session_context() as session:
-            user = await upsert_user(session, update.effective_user.id, update.effective_user.username, increment_count=False)
+            user = await upsert_user(
+                session,
+                update.effective_user.id,
+                update.effective_user.username,
+                increment_count=False,
+            )
             result = await session.execute(
                 select(Subscription)
                 .where(Subscription.user_id == user.id, Subscription.status == "active")
@@ -235,18 +261,22 @@ async def plan_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         for p in plans:
             if p.is_free:
                 continue
-            buttons.append([
-                InlineKeyboardButton(
-                    text=f"💳 {p.name} — {_format_price(p.price_brl_cents)} ({p.monthly_credits} créditos)",
-                    callback_data=f"plan:buy:{p.slug}",
-                )
-            ])
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"💳 {p.name} — {_format_price(p.price_brl_cents)} ({p.monthly_credits} créditos)",
+                        callback_data=f"plan:buy:{p.slug}",
+                    )
+                ]
+            )
             price = escape_markdown_v2(_format_price(p.price_brl_cents))
             lines.append(
                 f"\n📦 *{escape_markdown_v2(p.name)}*: `{p.monthly_credits}` créditos por {price}"
             )
         kb = InlineKeyboardMarkup(buttons) if buttons else None
-        await query.edit_message_text("".join(lines), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=kb)
+        await query.edit_message_text(
+            "".join(lines), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=kb
+        )
         return
 
     if len(parts) != 3 or parts[1] != "buy":
@@ -260,11 +290,15 @@ async def plan_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         from resusbot.services.payments_service import payments_service
 
         async with get_session_context() as session:
-            user = await upsert_user(session, update.effective_user.id, update.effective_user.username)
+            user = await upsert_user(
+                session, update.effective_user.id, update.effective_user.username
+            )
             plan_result = await session.execute(select(Plan).where(Plan.slug == slug))
             plan = plan_result.scalar_one_or_none()
             if not plan or plan.is_free:
-                await query.edit_message_text("Plano inválido ou gratuito\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await query.edit_message_text(
+                    "Plano inválido ou gratuito\\.", parse_mode=ParseMode.MARKDOWN_V2
+                )
                 return
 
             checkout = await payments_service.create_checkout(session, user_id=user.id, plan=plan)

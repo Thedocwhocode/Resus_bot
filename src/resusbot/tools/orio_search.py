@@ -1,4 +1,5 @@
 """Tool AGNO para OrioSearch (Tavily-compatible, self-hosted)."""
+
 from agno.tools import Toolkit
 
 from resusbot.config import settings
@@ -21,6 +22,7 @@ class OrioSearchTool(Toolkit):
             max_results: Número de resultados (padrão 5).
         """
         import asyncio
+
         return asyncio.get_event_loop().run_until_complete(
             self._search_web_async(query, max_results)
         )

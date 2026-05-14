@@ -1,4 +1,5 @@
 """Cliente HTTP compartilhado para todas as tools."""
+
 import httpx
 
 _client: httpx.AsyncClient | None = None

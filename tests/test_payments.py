@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+
 from resusbot.scripts.seed_categories import seed_categories
 from resusbot.scripts.seed_plans import seed_plans
 from resusbot.services.payments_service import MercadoPagoProvider, payments_service
@@ -40,6 +41,7 @@ def test_mp_parse_event_refunded():
 
 def test_mp_signature_passes_in_dev_with_default_secret(monkeypatch):
     from resusbot.config import settings
+
     monkeypatch.setattr(settings, "mp_webhook_secret", "changeme")
     monkeypatch.setattr(settings, "app_env", "development")
     provider = MercadoPagoProvider()
@@ -48,6 +50,7 @@ def test_mp_signature_passes_in_dev_with_default_secret(monkeypatch):
 
 def test_mp_signature_fails_in_prod_without_header(monkeypatch):
     from resusbot.config import settings
+
     monkeypatch.setattr(settings, "mp_webhook_secret", "real_secret")
     monkeypatch.setattr(settings, "app_env", "production")
     provider = MercadoPagoProvider()
@@ -69,7 +72,9 @@ async def test_create_checkout_creates_pending_payment(db_session):
     assert checkout is not None
     assert "payment_id" in checkout
 
-    payment_result = await db_session.execute(select(Payment).where(Payment.id == checkout["payment_id"]))
+    payment_result = await db_session.execute(
+        select(Payment).where(Payment.id == checkout["payment_id"])
+    )
     payment = payment_result.scalar_one()
     assert payment.status == "pending"
     assert payment.amount_brl_cents == 1490

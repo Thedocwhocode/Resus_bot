@@ -1,6 +1,5 @@
-version: "3.9"
-
 # Override para desenvolvimento local (sem Traefik, polling, porta exposta)
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 services:
   redis:
     ports:
@@ -12,7 +11,8 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/data
-      - ./src:/app/src   # hot-reload do código
+      # Hot-reload: bind do código sobre o pacote instalado em site-packages
+      - ./src/resusbot:/opt/venv/lib/python3.12/site-packages/resusbot
     environment:
       - TELEGRAM_MODE=polling
       - APP_ENV=development
@@ -20,9 +20,8 @@ services:
       - SQLITE_PATH=/data/resusbot.db
       - REDIS_URL=redis://redis:6379/0
     command: uvicorn resusbot.main:app --host 0.0.0.0 --port 8000 --reload
-    networks:
+    networks: !reset
       - internal
 
 networks:
-  traefik_public:
-    external: false  # override: não exige network externa em dev
+  traefik_public: !reset null

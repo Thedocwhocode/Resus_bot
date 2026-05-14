@@ -1,9 +1,8 @@
 import pytest
 import pytest_asyncio
+
 from resusbot.db.repository import (
     get_kpis,
-    get_top_queries,
-    get_top_users,
     log_search,
     upsert_article,
     upsert_user,

@@ -7,7 +7,10 @@ Jobs:
 - credit_expiration: diariamente às 03:00 — expira créditos comprados há > N dias.
 - subscription_expiration: diariamente às 03:30 — marca subscriptions vencidas.
 """
+
 from __future__ import annotations
+
+from datetime import UTC
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -43,7 +46,7 @@ async def _job_expire_credits() -> None:
 
 
 async def _job_expire_subscriptions() -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from sqlalchemy import select
 
@@ -52,7 +55,7 @@ async def _job_expire_subscriptions() -> None:
 
     try:
         async with get_session_context() as session:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             result = await session.execute(
                 select(Subscription).where(
                     Subscription.status == "active",
@@ -102,7 +105,9 @@ def start_scheduler() -> None:
     )
 
     _scheduler.start()
-    log.info("scheduler_started", jobs=["reset_monthly_quotas", "expire_credits", "expire_subscriptions"])
+    log.info(
+        "scheduler_started", jobs=["reset_monthly_quotas", "expire_credits", "expire_subscriptions"]
+    )
 
 
 def stop_scheduler() -> None:

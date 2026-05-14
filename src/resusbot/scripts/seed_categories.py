@@ -1,8 +1,8 @@
 """Popula tabela categories com as categorias médicas padrão."""
+
 import asyncio
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 CATEGORIES = [
     (1, "resuscitation", "Ressuscitação", "Resuscitation"),

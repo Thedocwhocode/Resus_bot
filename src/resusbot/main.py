@@ -2,10 +2,11 @@
 Ponto de entrada da aplicação.
 FastAPI + lifespan que inicia DB, Redis e o bot Telegram (polling ou webhook).
 """
+
 import secrets
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import Any
 
 import structlog
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -30,23 +31,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _bot_app
     log.info("resusbot_starting", mode=settings.telegram_mode, env=settings.app_env)
 
-    # Inicializa banco de dados
-    from resusbot.db.session import create_tables
-    await create_tables()
+    # Aplica migrations (cria schema na primeira execução)
+    from resusbot.db.session import run_migrations
+
+    await run_migrations()
     log.info("database_ready")
 
     # Seed de categorias e planos de billing
     from resusbot.scripts.seed_categories import seed_categories
     from resusbot.scripts.seed_plans import seed_plans
+
     await seed_categories()
     await seed_plans()
 
     # Inicia scheduler de jobs (reset mensal, expiração de créditos)
     from resusbot.services.scheduler import start_scheduler, stop_scheduler
+
     start_scheduler()
 
     # Constrói aplicação Telegram
     from resusbot.telegram.bot import build_application, setup_webhook, start_polling
+
     _bot_app = build_application()
 
     if settings.telegram_mode == "polling":
@@ -60,8 +65,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     from resusbot.cache.redis_client import close_redis
-    from resusbot.tools.base import close_http_client
     from resusbot.telegram.bot import stop_polling
+    from resusbot.tools.base import close_http_client
 
     if settings.telegram_mode == "polling" and _bot_app:
         await stop_polling(_bot_app)
@@ -87,7 +92,11 @@ def create_app() -> FastAPI:
     app.add_middleware(SlowAPIMiddleware)
 
     # CORS restrito ao domínio do dashboard; em dev, permite apenas localhost
-    origins = [settings.dashboard_domain] if settings.dashboard_domain else ["http://localhost:8000", "http://127.0.0.1:8000"]
+    origins = (
+        [settings.dashboard_domain]
+        if settings.dashboard_domain
+        else ["http://localhost:8000", "http://127.0.0.1:8000"]
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -115,6 +124,7 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         from resusbot.cache.redis_client import ping_redis
         from resusbot.db.session import engine
+
         try:
             async with engine.connect() as conn:
                 await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
@@ -150,6 +160,7 @@ def create_app() -> FastAPI:
 
     # Payments (webhook MP + landing)
     from resusbot.payments.routes import router as payments_router
+
     app.include_router(payments_router)
 
     return app
@@ -160,4 +171,7 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("resusbot.main:app", host="0.0.0.0", port=settings.port, reload=not settings.is_production)
+
+    uvicorn.run(
+        "resusbot.main:app", host="0.0.0.0", port=settings.port, reload=not settings.is_production
+    )

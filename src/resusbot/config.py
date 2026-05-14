@@ -57,5 +57,9 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.sqlite_path}"
 
+    @property
+    def sync_database_url(self) -> str:
+        return f"sqlite:///{self.sqlite_path}"
+
 
 settings = Settings()

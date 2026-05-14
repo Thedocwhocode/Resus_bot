@@ -24,11 +24,7 @@ _application: Application | None = None  # type: ignore[type-arg]
 
 
 def build_application() -> Application:  # type: ignore[type-arg]
-    app = (
-        Application.builder()
-        .token(settings.telegram_bot_token)
-        .build()
-    )
+    app = Application.builder().token(settings.telegram_bot_token).build()
 
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("help", help_handler))

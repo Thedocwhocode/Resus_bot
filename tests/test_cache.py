@@ -1,4 +1,3 @@
-import pytest
 from resusbot.cache.query_cache import hash_query, normalize_query
 
 

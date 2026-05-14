@@ -1,5 +1,3 @@
-import asyncio
-import logging
 import time
 
 import structlog
@@ -8,7 +6,11 @@ from telegram.constants import ChatAction, ParseMode
 from telegram.ext import ContextTypes
 
 from resusbot.security.sanitize import clean
-from resusbot.telegram.formatters import format_error, format_research_response, format_typing_message
+from resusbot.telegram.formatters import (
+    format_error,
+    format_research_response,
+    format_typing_message,
+)
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -20,6 +22,7 @@ def get_research_service():  # type: ignore[return]
     global _research_service
     if _research_service is None:
         from resusbot.services.research_service import research_service
+
         _research_service = research_service
     return _research_service
 
@@ -65,6 +68,7 @@ async def stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     try:
         from resusbot.db.repository import get_user_stats
         from resusbot.db.session import get_session_context
+
         async with get_session_context() as session:
             stats = await get_user_stats(session, update.effective_user.id)
         await update.message.reply_text(
@@ -76,7 +80,9 @@ async def stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
     except Exception as e:
         log.warning("stats_handler error", error=str(e))
-        await update.message.reply_text("Estatísticas indisponíveis no momento\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            "Estatísticas indisponíveis no momento\\.", parse_mode=ParseMode.MARKDOWN_V2
+        )
 
 
 async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -112,7 +118,9 @@ async def _process_query(update: Update, raw_query: str) -> None:
     query = clean(raw_query)
 
     if not query:
-        await update.message.reply_text("Mensagem inválida ou muito curta\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            "Mensagem inválida ou muito curta\\.", parse_mode=ParseMode.MARKDOWN_V2
+        )
         return
 
     log.info("search_request", telegram_id=user_id, query_length=len(query))
@@ -139,6 +147,7 @@ async def _process_query(update: Update, raw_query: str) -> None:
         # Saldo insuficiente — oferece botão "Ver planos"
         if result.get("error") == "insufficient_credits":
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
             kb = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("💳 Ver planos", callback_data="plan:list")]]
             )
@@ -150,7 +159,9 @@ async def _process_query(update: Update, raw_query: str) -> None:
             return
 
         formatted, keyboard = format_research_response(result["response"])
-        await typing_msg.edit_text(formatted, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+        await typing_msg.edit_text(
+            formatted, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard
+        )
 
     except Exception as e:
         log.exception("search_error", telegram_id=user_id, error=str(e))

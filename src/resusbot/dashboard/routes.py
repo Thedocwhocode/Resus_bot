@@ -31,6 +31,7 @@ async def dashboard_page(
 
 # ── Partials HTML para HTMX ───────────────────────────────────────────────────
 
+
 @router.get("/api/stats", response_class=HTMLResponse)
 async def api_stats(
     request: Request,
@@ -39,7 +40,9 @@ async def api_stats(
     session=Depends(get_session),
 ) -> HTMLResponse:
     data = await get_kpis(session, days=range)
-    return templates.TemplateResponse("partials/kpis.html", {"request": request, "data": data, "range": range})
+    return templates.TemplateResponse(
+        "partials/kpis.html", {"request": request, "data": data, "range": range}
+    )
 
 
 @router.get("/api/top-users", response_class=HTMLResponse)
@@ -61,7 +64,9 @@ async def api_top_subjects(
     session=Depends(get_session),
 ) -> HTMLResponse:
     rows = await get_top_subjects(session, limit=limit)
-    return templates.TemplateResponse("partials/top_subjects.html", {"request": request, "rows": rows})
+    return templates.TemplateResponse(
+        "partials/top_subjects.html", {"request": request, "rows": rows}
+    )
 
 
 @router.get("/api/top-queries", response_class=HTMLResponse)
@@ -72,7 +77,9 @@ async def api_top_queries(
     session=Depends(get_session),
 ) -> HTMLResponse:
     rows = await get_top_queries(session, limit=limit)
-    return templates.TemplateResponse("partials/top_queries.html", {"request": request, "rows": rows})
+    return templates.TemplateResponse(
+        "partials/top_queries.html", {"request": request, "rows": rows}
+    )
 
 
 @router.get("/api/top-articles", response_class=HTMLResponse)
@@ -83,7 +90,9 @@ async def api_top_articles(
     session=Depends(get_session),
 ) -> HTMLResponse:
     rows = await get_top_articles(session, limit=limit)
-    return templates.TemplateResponse("partials/top_articles.html", {"request": request, "rows": rows})
+    return templates.TemplateResponse(
+        "partials/top_articles.html", {"request": request, "rows": rows}
+    )
 
 
 @router.get("/api/timeseries")
@@ -119,7 +128,9 @@ async def api_billing_kpis(
     session=Depends(get_session),
 ) -> HTMLResponse:
     data = await get_billing_kpis(session)
-    return templates.TemplateResponse("partials/billing_kpis.html", {"request": request, "data": data})
+    return templates.TemplateResponse(
+        "partials/billing_kpis.html", {"request": request, "data": data}
+    )
 
 
 @router.get("/api/subscribers", response_class=HTMLResponse)
@@ -132,7 +143,9 @@ async def api_subscribers(
     session=Depends(get_session),
 ) -> HTMLResponse:
     rows = await get_subscribers(session, plan_slug=plan, status=status, limit=limit)
-    return templates.TemplateResponse("partials/subscribers.html", {"request": request, "rows": rows})
+    return templates.TemplateResponse(
+        "partials/subscribers.html", {"request": request, "rows": rows}
+    )
 
 
 @router.get("/api/revenue")

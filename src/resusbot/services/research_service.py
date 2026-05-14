@@ -1,17 +1,11 @@
 """
 Orquestra: verificação de cache → workflow AGNO → persistência no DB.
 """
+
 import asyncio
 import re
 import time
 from typing import Any
-
-_DOI_PATTERN = re.compile(r"^10\.\d{4,}/\S+$")
-
-
-def _is_doi_query(query: str) -> bool:
-    """True se a query inteira é um DOI (ex: '10.1056/NEJMoa2001282')."""
-    return bool(_DOI_PATTERN.match(query.strip()))
 
 import structlog
 
@@ -23,6 +17,14 @@ from resusbot.cache.query_cache import (
 )
 from resusbot.config import settings
 
+_DOI_PATTERN = re.compile(r"^10\.\d{4,}/\S+$")
+
+
+def _is_doi_query(query: str) -> bool:
+    """True se a query inteira é um DOI (ex: '10.1056/NEJMoa2001282')."""
+    return bool(_DOI_PATTERN.match(query.strip()))
+
+
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 
@@ -33,13 +35,16 @@ class ResearchService:
     def _get_workflow(self) -> Any:
         if self._workflow is None:
             from resusbot.workflows.research_workflow import ResearchWorkflow
+
             self._workflow = ResearchWorkflow(
                 name="resusbot-workflow",
                 debug_mode=not settings.is_production,
             )
         return self._workflow
 
-    async def handle(self, query: str, telegram_id: int, username: str | None = None) -> dict[str, Any]:
+    async def handle(
+        self, query: str, telegram_id: int, username: str | None = None
+    ) -> dict[str, Any]:
         """
         Processa uma query de pesquisa.
 
@@ -136,16 +141,21 @@ class ResearchService:
         try:
             from resusbot.db.session import get_session_context
             from resusbot.services import credits_service
+
             async with get_session_context() as session:
                 info = await credits_service.check_balance(session, user_id)
             # Avisa só quando balance pago (não quota) estiver baixo
             if 0 < info.balance <= 3:
-                from resusbot.config import settings
                 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
                 from telegram.constants import ParseMode
+
+                from resusbot.config import settings
+
                 if not settings.telegram_bot_token:
                     return
-                kb = InlineKeyboardMarkup([[InlineKeyboardButton("💳 Ver planos", callback_data="plan:list")]])
+                kb = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("💳 Ver planos", callback_data="plan:list")]]
+                )
                 bot = Bot(token=settings.telegram_bot_token)
                 await bot.send_message(
                     chat_id=telegram_id,
@@ -220,13 +230,18 @@ class ResearchService:
         Retorna (article_ids, has_pdf_link).
         """
         import re
+
         doi_match = re.search(r"10\.\d{4,}/\S+", response_text)
         if not doi_match:
             return [], False
 
         doi = doi_match.group(0).rstrip(".,;)")
         # Detecta link de PDF na resposta
-        has_pdf = bool(re.search(r"(\.pdf|europepmc|pubmed|/pmc/|✅ PDF|open access)", response_text, re.IGNORECASE))
+        has_pdf = bool(
+            re.search(
+                r"(\.pdf|europepmc|pubmed|/pmc/|✅ PDF|open access)", response_text, re.IGNORECASE
+            )
+        )
         # Tenta extrair URL do PDF
         pdf_url_match = re.search(r"https?://\S+\.pdf\b", response_text)
         pdf_url = pdf_url_match.group(0) if pdf_url_match else None
@@ -258,6 +273,7 @@ class ResearchService:
         try:
             from resusbot.db.repository import upsert_user
             from resusbot.db.session import get_session_context
+
             async with get_session_context() as session:
                 user = await upsert_user(session, telegram_id, username)
                 return user.id
@@ -269,6 +285,7 @@ class ResearchService:
         try:
             from resusbot.db.repository import log_search
             from resusbot.db.session import get_session_context
+
             async with get_session_context() as session:
                 entry = await log_search(session, **kwargs)
                 return entry.id

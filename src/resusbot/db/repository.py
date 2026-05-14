@@ -1,14 +1,13 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import desc, func, select, text, update
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from resusbot.db.models import Article, CacheEntry, Category, SearchArticle, SearchLog, User
 
-
 # ── Users ─────────────────────────────────────────────────────────────────────
+
 
 async def upsert_user(
     session: AsyncSession,
@@ -22,7 +21,7 @@ async def upsert_user(
         user = User(telegram_id=telegram_id, username=username)
         session.add(user)
     else:
-        user.last_seen = datetime.now(timezone.utc)
+        user.last_seen = datetime.now(UTC)
         if increment_count:
             user.request_count += 1
         if username:
@@ -39,9 +38,9 @@ async def get_user_stats(session: AsyncSession, telegram_id: int) -> dict[str, A
         return {"total": 0, "cache_hits": 0, "first_seen": "—"}
 
     cache_hits_result = await session.execute(
-        select(func.count()).select_from(SearchLog).where(
-            SearchLog.user_id == user.id, SearchLog.cache_hit.is_(True)
-        )
+        select(func.count())
+        .select_from(SearchLog)
+        .where(SearchLog.user_id == user.id, SearchLog.cache_hit.is_(True))
     )
     cache_hits: int = cache_hits_result.scalar_one()
     return {
@@ -52,6 +51,7 @@ async def get_user_stats(session: AsyncSession, telegram_id: int) -> dict[str, A
 
 
 # ── Articles ──────────────────────────────────────────────────────────────────
+
 
 async def get_article_by_doi(session: AsyncSession, doi: str) -> Article | None:
     normalized = _normalize_doi(doi)
@@ -70,7 +70,7 @@ async def upsert_article(session: AsyncSession, data: dict[str, Any]) -> Article
         for field in ("pdf_url", "oa_status", "citations", "metadata_json"):
             if data.get(field) is not None:
                 setattr(existing, field, data[field])
-        existing.updated_at = datetime.now(timezone.utc)
+        existing.updated_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(existing)
         return existing
@@ -98,6 +98,7 @@ def _normalize_doi(doi: str) -> str:
 
 
 # ── SearchLog ─────────────────────────────────────────────────────────────────
+
 
 async def log_search(
     session: AsyncSession,
@@ -131,6 +132,7 @@ async def log_search(
 
 # ── CacheEntry ────────────────────────────────────────────────────────────────
 
+
 async def get_cache_entry(session: AsyncSession, query_hash: str) -> CacheEntry | None:
     result = await session.execute(select(CacheEntry).where(CacheEntry.query_hash == query_hash))
     return result.scalar_one_or_none()
@@ -145,20 +147,23 @@ async def upsert_cache_entry(
     existing = await get_cache_entry(session, query_hash)
     if existing:
         existing.hits += 1
-        existing.last_used_at = datetime.now(timezone.utc)
+        existing.last_used_at = datetime.now(UTC)
     else:
-        session.add(CacheEntry(
-            query_hash=query_hash,
-            query_normalized=query_normalized,
-            response_json=response_json,
-        ))
+        session.add(
+            CacheEntry(
+                query_hash=query_hash,
+                query_normalized=query_normalized,
+                response_json=response_json,
+            )
+        )
     await session.commit()
 
 
 # ── Dashboard stats ───────────────────────────────────────────────────────────
 
+
 async def get_kpis(session: AsyncSession, days: int = 7) -> dict[str, Any]:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
     total_q = await session.execute(
         select(func.count()).select_from(SearchLog).where(SearchLog.created_at >= since)
     )
@@ -166,9 +171,9 @@ async def get_kpis(session: AsyncSession, days: int = 7) -> dict[str, Any]:
         select(func.count(func.distinct(SearchLog.user_id))).where(SearchLog.created_at >= since)
     )
     cache_hits = await session.execute(
-        select(func.count()).select_from(SearchLog).where(
-            SearchLog.created_at >= since, SearchLog.cache_hit.is_(True)
-        )
+        select(func.count())
+        .select_from(SearchLog)
+        .where(SearchLog.created_at >= since, SearchLog.cache_hit.is_(True))
     )
     total = total_q.scalar_one()
     hits = cache_hits.scalar_one()
@@ -238,9 +243,12 @@ async def get_top_articles(session: AsyncSession, limit: int = 10) -> list[dict[
         .order_by(desc("searches"))
         .limit(limit)
     )
-    return [{"doi": row.doi, "title": row.title or row.doi, "searches": row.searches} for row in rows]
+    return [
+        {"doi": row.doi, "title": row.title or row.doi, "searches": row.searches} for row in rows
+    ]
 
 
 def _hash_id(telegram_id: int) -> str:
     import hashlib
+
     return hashlib.sha256(str(telegram_id).encode()).hexdigest()[:12]

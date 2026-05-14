@@ -1,4 +1,5 @@
 """Rate limiting por telegram_id usando sliding window no Redis."""
+
 import time
 
 import structlog
@@ -15,6 +16,7 @@ async def check_rate_limit(telegram_id: int, max_per_window: int = 20) -> bool:
     """
     try:
         from resusbot.cache.redis_client import get_redis
+
         redis = await get_redis()
         key = f"rl:user:{telegram_id}"
         now = time.time()

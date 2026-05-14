@@ -1,4 +1,5 @@
 """Tool AGNO para Unpaywall — encontra PDFs legais e gratuitos por DOI."""
+
 import asyncio
 
 from agno.tools import Toolkit

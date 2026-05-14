@@ -4,6 +4,7 @@ Rotas HTTP de pagamentos.
 - POST /payments/webhook/mercadopago — recebe webhook do MP (idempotente)
 - GET  /payments/return — landing pós-checkout, redireciona para o bot
 """
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,9 @@ async def mercadopago_webhook(request: Request) -> JSONResponse:
     raw_body = await request.body()
     try:
         payload: dict[str, Any] = json.loads(raw_body.decode("utf-8")) if raw_body else {}
-    except Exception:
+    except Exception as e:
         log.warning("webhook_invalid_json")
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        raise HTTPException(status_code=400, detail="Invalid JSON") from e
 
     headers = {k.lower(): v for k, v in request.headers.items()}
 
