@@ -12,6 +12,11 @@ class Settings(BaseSettings):
 
     # LLM
     groq_api_key: str = ""
+    deepseek_api_key: str = ""
+
+    # RAG / Study Pipeline
+    rag_corpus_dir: str = ""        # path to PDF corpus (e.g. /data/corpus)
+    rag_persist_dir: str = ""       # path for ChromaDB embeddings (e.g. /data/rag)
 
     # OrioSearch
     orio_base_url: str = "http://oriosearch:8080"

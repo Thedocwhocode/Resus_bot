@@ -31,6 +31,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+rag = [
+    "docling>=2.0.0",
+    "llama-index-core>=0.12.0",
+    "llama-index-embeddings-huggingface>=0.4.0",
+    "llama-index-vector-stores-chroma>=0.4.0",
+    "chromadb>=0.6.0",
+    "sentence-transformers>=3.0.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
@@ -63,6 +71,8 @@ exclude = [
     "src/resusbot/db/migrations/",
     "src/resusbot/dashboard/routes.py",
     "src/resusbot/workflows/research_workflow.py",
+    "src/resusbot/study/",
+    "src/resusbot/rag/",
 ]
 warn_unused_ignores = false
 

@@ -17,6 +17,12 @@ from resusbot.telegram.handlers import (
     start_handler,
     stats_handler,
 )
+from resusbot.telegram.study_handlers import (
+    case_handler,
+    deep_handler,
+    study_handler,
+    study_page_callback,
+)
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -36,6 +42,11 @@ def build_application() -> Application:  # type: ignore[type-arg]
     app.add_handler(CommandHandler("historico", historico_handler))
     app.add_handler(CommandHandler("cancelar", cancelar_handler))
     app.add_handler(CallbackQueryHandler(plan_callback_handler, pattern=r"^plan:"))
+    # Study pipeline (Pipeline 2)
+    app.add_handler(CommandHandler("study", study_handler))
+    app.add_handler(CommandHandler("deep", deep_handler))
+    app.add_handler(CommandHandler("case", case_handler))
+    app.add_handler(CallbackQueryHandler(study_page_callback, pattern=r"^study_page:"))
     # Mensagem livre (deve vir por último)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
@@ -52,6 +63,9 @@ async def setup_bot_commands(app: Application) -> None:  # type: ignore[type-arg
         BotCommand("cancelar", "Cancelar renovação automática"),
         BotCommand("help", "Ajuda"),
         BotCommand("stats", "Suas estatísticas de uso"),
+        BotCommand("study", "Revisão 20/80 de um tema (ex: /study sepse)"),
+        BotCommand("deep", "Deep dive completo + fontes externas"),
+        BotCommand("case", "Caso clínico com raciocínio socrático"),
     ]
     await app.bot.set_my_commands(commands)
     log.info("telegram_commands_registered")
