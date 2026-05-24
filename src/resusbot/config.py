@@ -12,6 +12,16 @@ class Settings(BaseSettings):
 
     # LLM
     groq_api_key: str = ""
+    deepseek_api_key: str = ""
+
+    # RAG / Study Pipeline
+    rag_corpus_dir: str = ""        # path to PDF corpus (e.g. /data/corpus)
+    rag_persist_dir: str = ""       # path for ChromaDB embeddings (e.g. /data/rag)
+
+    # WhatsApp / open-wa sidecar
+    openwa_base_url: str = "http://openwa:3000"
+    openwa_api_key: str = ""        # optional — set WA_API_KEY in open-wa config
+    wa_webhook_secret: str = "changeme-wa"  # shared secret for webhook validation
 
     # OrioSearch
     orio_base_url: str = "http://oriosearch:8080"

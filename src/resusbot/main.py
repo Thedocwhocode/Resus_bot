@@ -163,6 +163,11 @@ def create_app() -> FastAPI:
 
     app.include_router(payments_router)
 
+    # WhatsApp (open-wa sidecar webhook)
+    from resusbot.whatsapp.routes import router as whatsapp_router
+
+    app.include_router(whatsapp_router)
+
     return app
 
 

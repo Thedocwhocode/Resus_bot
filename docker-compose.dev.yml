@@ -5,6 +5,14 @@ services:
     ports:
       - "6379:6379"
 
+  openwa:
+    ports:
+      - "3000:3000"
+    environment:
+      # In dev, webhook points to host machine (FastAPI running locally)
+      - WA_WEB_HOOK=http://host.docker.internal:8000/whatsapp/webhook
+      - WA_SESSION_DATA_PATH=/session
+
   bot:
     build: .
     ports:
