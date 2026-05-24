@@ -7,6 +7,7 @@ networks:
 volumes:
   resusbot_data:
   redis_data:
+  openwa_session:
 
 services:
 
@@ -51,6 +52,35 @@ services:
     networks:
       - internal
 
+  # ── open-wa (WhatsApp sidecar) ───────────────────────────────────────────────
+  # First run: docker compose logs openwa --follow  →  scan the QR code with your phone
+  # Subsequent runs: session is restored from the openwa_session volume automatically
+  openwa:
+    image: openwa/wa-automate:latest
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      # Webhook URL inside the Docker network — open-wa POSTs events here
+      - WA_WEB_HOOK=http://bot:8000/whatsapp/webhook
+      # Include in every webhook POST so FastAPI can validate origin
+      - WA_WEBHOOK_HEADERS=x-wa-webhook-secret:${WA_WEBHOOK_SECRET:-changeme-wa}
+      # Optional API key for the open-wa REST API
+      - WA_API_KEY=${OPENWA_API_KEY:-}
+      # Persist QR auth session between restarts
+      - WA_SESSION_DATA_PATH=/session
+      # Suppress QR in stdout; write to file instead (readable via `docker cp`)
+      - DISABLE_SPINS=true
+    volumes:
+      - openwa_session:/session
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/getStatus"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   # ── ResusBot ─────────────────────────────────────────────────────────────────
   bot:
     build: .
@@ -62,6 +92,8 @@ services:
       redis:
         condition: service_healthy
       oriosearch:
+        condition: service_started
+      openwa:
         condition: service_started
     networks:
       - internal
